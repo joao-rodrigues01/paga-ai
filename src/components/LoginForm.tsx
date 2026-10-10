@@ -29,7 +29,10 @@ export function LoginForm() {
       setMessage('Se o endereço puder receber acesso, enviaremos um link mágico. Confira sua caixa de entrada.')
     } catch (error) {
       setStatus('error')
-      setMessage(error instanceof Error ? error.message : 'Não foi possível enviar o link. Tente novamente.')
+      const errorMessage = error instanceof Error ? error.message : ''
+      setMessage(/email rate limit exceeded/i.test(errorMessage)
+        ? 'O limite de envio de e-mails do Supabase foi atingido. Aguarde a renovação do limite ou configure um SMTP próprio no Supabase.'
+        : errorMessage || 'Não foi possível enviar o link. Tente novamente.')
     }
   }
 

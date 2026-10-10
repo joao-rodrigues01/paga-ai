@@ -27,5 +27,5 @@ export function getSupabaseClient(): SupabaseClient<Database> {
 
 export function getAuthRedirectUrl(): string {
   const configuredUrl = import.meta.env.VITE_SUPABASE_REDIRECT_URL?.trim()
-  return configuredUrl || window.location.origin
+  return configuredUrl || new URL(import.meta.env.BASE_URL, window.location.origin).toString()
 }
