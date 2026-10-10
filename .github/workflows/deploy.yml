@@ -29,7 +29,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm run build -- --base=/paga-ai/
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "::error::Configure the VITE_SUPABASE_URL repository secret."; exit 1; }
+          test -n "$VITE_SUPABASE_ANON_KEY" || { echo "::error::Configure the VITE_SUPABASE_ANON_KEY repository secret."; exit 1; }
+          npm run build -- --base=/paga-ai/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
