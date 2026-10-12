@@ -27,5 +27,10 @@ export function getSupabaseClient(): SupabaseClient<Database> {
 
 export function getAuthRedirectUrl(): string {
   const configuredUrl = import.meta.env.VITE_SUPABASE_REDIRECT_URL?.trim()
-  return configuredUrl || new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+  const target = configuredUrl
+    ? new URL(configuredUrl, window.location.origin)
+    : new URL(import.meta.env.BASE_URL, window.location.origin)
+  const inviteToken = new URLSearchParams(window.location.search).get('invite')
+  if (inviteToken) target.searchParams.set('invite', inviteToken)
+  return target.toString()
 }

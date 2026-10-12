@@ -1,6 +1,6 @@
 # PagaAí 💸
 
-Aplicação web para registrar gastos compartilhados, acompanhar parcelas e controlar pagamentos entre amigos. O MVP continua **single-player**: os dados financeiros permanecem no `localStorage` do navegador. O login Supabase está integrado, mas ainda não sincroniza despesas entre pessoas ou dispositivos.
+Aplicação web para registrar gastos compartilhados, acompanhar parcelas e controlar pagamentos entre amigos. O app mantém o fluxo local existente no `localStorage`; o login Supabase está integrado. A migração aditiva de amizades/importação está em `supabase/migrations/20261012_friendships_and_local_import.sql`, mas precisa ser aplicada no projeto Supabase antes de usar convites e importação. A store e as telas de despesas ainda não sincronizam nem carregam dados da nuvem.
 
 ## Requisitos
 
@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Para o login, copie `.env.example` para `.env.local` e configure as variáveis no seu ambiente. Não versione `.env.local` nem compartilhe chaves secretas. Os amigos podem abrir o site publicado, mas cada navegador ainda mantém seus próprios dados locais.
+Para o login, copie `.env.example` para `.env.local` e configure as variáveis no seu ambiente. Não versione `.env.local` nem compartilhe chaves secretas. Cada navegador ainda mantém seus próprios dados locais; login não sincroniza dados automaticamente.
 
 Abra no navegador o endereço exibido pelo Vite. Para gerar a versão de produção:
 
@@ -41,9 +41,18 @@ npm test
 - Edição e exclusão protegidas para preservar relações e pagamentos registrados.
 - Gestão posterior de dependentes, histórico mensal pela data de pagamento e detalhamento das faturas por parcela.
 - Exportação e restauração de backup JSON validado.
-- Persistência no `localStorage` via Zustand. Não há backend, autenticação ou sincronização entre dispositivos.
+- Persistência principal no `localStorage` via Zustand; login via Supabase Auth.
+- Ferramenta manual para importar uma vez o backup local para a conta Supabase, sem apagar o armazenamento do navegador.
+- Convites de amizade com token de uso único e validade de sete dias, depois de aplicar a migração SQL e importar os contatos.
+- As consultas de despesas no app continuam locais; o acesso concedido por RLS ao convidado só será exibido na interface após a próxima etapa de sincronização.
 
-Consulte [SPEC.md](./SPEC.md) para a especificação funcional, regras de cálculo, estrutura de dados e ideias para versões futuras.
+Consulte [SPEC.md](./SPEC.md) para a especificação funcional, regras de cálculo, arquitetura Supabase atual e etapas ainda pendentes.
+
+## Supabase: ativação incremental
+
+O projeto já pode conter `supabase/schema.sql` (modelo anterior, com grupos). A migração nova é aditiva e preserva essas tabelas e registros. Execute `supabase/migrations/20261012_friendships_and_local_import.sql` no SQL Editor do mesmo projeto antes de usar os recursos de importação/convite. Não execute o schema inicial novamente em produção.
+
+Depois, entre com a conta administradora, use **Migrar dados ao Supabase** uma única vez neste navegador e confira o resultado no console do navegador. O importador mantém o `localStorage` intacto e a RPC impede uma segunda importação da mesma conta. Convide amigos pela ação ao lado do contato já importado. O convite concede acesso às linhas relacionadas no banco, porém o app ainda não tem leitor cloud para apresentar essas despesas ao amigo.
 
 ## Publicação
 

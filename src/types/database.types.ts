@@ -33,6 +33,16 @@ export interface Database {
           { foreignKeyName: 'contacts_owner_profile_id_fkey'; columns: ['owner_profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
+      friendships: {
+        Row: { id: string; user_id: string; friend_profile_id: string | null; friend_name: string; status: 'pending' | 'accepted'; invite_token_hash: string | null; invite_expires_at: string | null; accepted_at: string | null; created_at: string; updated_at: string }
+        Insert: { id: string; user_id: string; friend_profile_id?: string | null; friend_name: string; status?: 'pending' | 'accepted'; invite_token_hash?: string | null; invite_expires_at?: string | null; accepted_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { friend_profile_id?: string | null; friend_name?: string; status?: 'pending' | 'accepted'; invite_token_hash?: string | null; invite_expires_at?: string | null; accepted_at?: string | null; updated_at?: string }
+        Relationships: [
+          { foreignKeyName: 'friendships_id_fkey'; columns: ['id']; isOneToOne: true; referencedRelation: 'contacts'; referencedColumns: ['id'] },
+          { foreignKeyName: 'friendships_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'friendships_friend_profile_id_fkey'; columns: ['friend_profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
       group_members: {
         Row: { group_id: string; profile_id: string; role: string; joined_at: string }
         Insert: { group_id: string; profile_id: string; role?: string; joined_at?: string }
@@ -68,13 +78,15 @@ export interface Database {
         Relationships: [{ foreignKeyName: 'expense_installments_expense_id_fkey'; columns: ['expense_id']; isOneToOne: false; referencedRelation: 'expenses'; referencedColumns: ['id'] }]
       }
       expense_splits: {
-        Row: { id: string; installment_id: string; payer_profile_id: string | null; payer_contact_id: string | null; dependent_id: string | null; amount_owed: number; is_paid: boolean; paid_at: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; installment_id: string; payer_profile_id?: string | null; payer_contact_id?: string | null; dependent_id?: string | null; amount_owed: number; is_paid?: boolean; paid_at?: string | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; installment_id?: string; payer_profile_id?: string | null; payer_contact_id?: string | null; dependent_id?: string | null; amount_owed?: number; is_paid?: boolean; paid_at?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; installment_id: string; payer_profile_id: string | null; payer_contact_id: string | null; friendship_id: string | null; profile_id: string | null; dependent_id: string | null; amount_owed: number; is_paid: boolean; paid_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; installment_id: string; payer_profile_id?: string | null; payer_contact_id?: string | null; friendship_id?: string | null; profile_id?: string | null; dependent_id?: string | null; amount_owed: number; is_paid?: boolean; paid_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; installment_id?: string; payer_profile_id?: string | null; payer_contact_id?: string | null; friendship_id?: string | null; profile_id?: string | null; dependent_id?: string | null; amount_owed?: number; is_paid?: boolean; paid_at?: string | null; created_at?: string; updated_at?: string }
         Relationships: [
           { foreignKeyName: 'expense_splits_dependent_id_payer_profile_id_fkey'; columns: ['dependent_id', 'payer_profile_id']; isOneToOne: false; referencedRelation: 'dependents'; referencedColumns: ['id', 'profile_id'] },
           { foreignKeyName: 'expense_splits_dependent_id_payer_contact_id_fkey'; columns: ['dependent_id', 'payer_contact_id']; isOneToOne: false; referencedRelation: 'dependents'; referencedColumns: ['id', 'contact_id'] },
           { foreignKeyName: 'expense_splits_installment_id_fkey'; columns: ['installment_id']; isOneToOne: false; referencedRelation: 'expense_installments'; referencedColumns: ['id'] },
+          { foreignKeyName: 'expense_splits_friendship_id_fkey'; columns: ['friendship_id']; isOneToOne: false; referencedRelation: 'friendships'; referencedColumns: ['id'] },
+          { foreignKeyName: 'expense_splits_profile_id_fkey'; columns: ['profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
           { foreignKeyName: 'expense_splits_payer_contact_id_fkey'; columns: ['payer_contact_id']; isOneToOne: false; referencedRelation: 'contacts'; referencedColumns: ['id'] },
           { foreignKeyName: 'expense_splits_payer_profile_id_fkey'; columns: ['payer_profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
@@ -84,6 +96,9 @@ export interface Database {
     Functions: {
       get_own_pix_key: { Args: Record<PropertyKey, never>; Returns: string | null }
       mark_expense_split_paid: { Args: { p_split_id: string }; Returns: Database['public']['Tables']['expense_splits']['Row'] }
+      create_friend_invite: { Args: { p_friendship_id: string }; Returns: string }
+      accept_friend_invite: { Args: { p_token: string }; Returns: string }
+      import_local_backup: { Args: { p_data: Json }; Returns: Json }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

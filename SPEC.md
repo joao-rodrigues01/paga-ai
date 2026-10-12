@@ -1,12 +1,12 @@
 # PagaAí — Especificação funcional e técnica
 
-**Estado do documento:** descreve o comportamento implementado no MVP atual e registra ideias futuras sem tratá-las como funcionalidades disponíveis.
+**Estado do documento:** descreve funcionalidades locais implementadas, a integração parcial de autenticação/amizades e o que ainda depende da sincronização da store.
 
 ## 1. Visão do produto
 
-PagaAí ajuda uma pessoa a organizar gastos compartilhados com amigos, identificar quanto cada participante deve e acompanhar os pagamentos. O MVP é **single-player e admin-only**: somente o dono do navegador opera a aplicação. Amigos e dependentes são registros administrados pelo dono; eles não têm conta nem acesso próprio.
+PagaAí ajuda uma pessoa a organizar gastos compartilhados com amigos, identificar quanto cada participante deve e acompanhar os pagamentos. As operações financeiras do app continuam **single-player e locais**. Supabase Auth está integrado e há uma migração SQL aditiva planejada para amizades, importação única e autorização de leitura/baixa de divisões compartilhadas.
 
-Todos os dados ficam no `localStorage` do navegador usando Zustand `persist`. Não existe backend, autenticação, API de negócio, sincronização entre navegadores ou envio de cobranças.
+O Zustand `persist` no `localStorage` continua sendo a fonte de dados usada pelas telas. A autenticação usa Supabase; o backend ainda não é a fonte de leitura/escrita da store. Ao aplicar a migração SQL, o app oferece importação manual do backup e emissão/aceite de convites, mas ainda não carrega despesas cloud na interface. Não há sincronização contínua.
 
 ## 2. Princípios e limites do MVP
 
@@ -226,25 +226,27 @@ Arquivos centrais:
 - `src/store/useAppStore.ts`: estado, validações, cálculo de parcelas e persistência.
 - `src/types.ts`: interfaces de domínio.
 
-## 7. Próximas fases — fora do MVP local atual
+## 7. Backend parcial e funcionalidades pendentes
 
-Estas ideias não devem ser consideradas implementadas. Qualquer agente que trabalhe nelas deve preservar o modo local do MVP até que uma decisão explícita aprove uma mudança arquitetural.
+O login Supabase está implementado. A primeira versão do schema `supabase/schema.sql` pode já estar aplicada e a migração aditiva `supabase/migrations/20261012_friendships_and_local_import.sql` adiciona o modelo de amizades, importação e RLS sem remover o legado de grupos. A migração aditiva ainda precisa ser executada pelo administrador do projeto Supabase. O código cliente para importação e convites existe, mas depende dela.
+
+Ainda não implementado: leitura e escrita de despesas pela nuvem, atualização do Zustand a partir do Supabase, sincronização entre dispositivos, resolução de conflitos e visualização de despesas cloud pelo amigo convidado. O aceite atual concede acesso no banco, não adiciona tela de despesas compartilhadas.
 
 ### Próximos passos de organização e entrega
 
 - [ ] Configurar versionamento Git para o projeto, com histórico de alterações e convenção de commits.
 - [ ] Mover/publicar o projeto na pasta ou repositório do GitHub com o nome **PagaAí**.
 
-### Fase futura com backend (possível Fase 2)
+### Próxima etapa de backend
 
-- Migrar dados para uma API/BaaS, possivelmente Supabase/PostgreSQL.
-- Autenticação, sincronização entre dispositivos e migração assistida do armazenamento local.
-- Políticas de acesso e cópias de segurança adequadas a dados financeiros pessoais.
-- O primeiro desenho de referência para Supabase está em `supabase/schema.sql`; ele é planejamento e não está conectado ao app atual.
-- A conta autenticada representa apenas “Eu”. Amigos locais sem conta são importados como `contacts` privados do dono; seus dependentes continuam ligados ao contato. Dados compartilhados passam a usar `groups`, associação com contas e contatos explicitamente compartilhados.
-- Importar entidades com os UUIDs locais e usar `upsert` idempotente dentro de uma transação/RPC. Um backup JSON integral permanece intacto até a conferência dos totais e relacionamentos no servidor; login, por si só, não importa nem apaga dados locais.
-- Convites/associação de um contato a uma conta exigem confirmação explícita e migração transacional das divisões/dependentes; nunca associar por nome ou e-mail digitado sem verificação.
-- Criar despesas, parcelas e divisões será uma única RPC/transação para validar, no commit, totais da compra, parcelas e cotas. O Zustand/localStorage só deixa de ser fonte principal depois de sincronização e reconciliação concluídas.
+- Integrar a leitura cloud ao app, usando `profile_id` para filtrar as dívidas do amigo e mantendo todas as despesas do criador.
+- Migrar CRUD de despesas, parcelas e pagamentos para repositórios/RPCs Supabase e definir como a UI atualiza/recupera o estado.
+- Projetar sincronização entre dispositivos e resolução de conflitos antes de remover o `localStorage` como fonte principal.
+- `supabase/schema.sql` é o schema anterior com grupos. A migração aditiva `supabase/migrations/20261012_friendships_and_local_import.sql` mantém as tabelas antigas e adiciona relações individuais sem exigir grupo.
+- O importador mantém os UUIDs locais, executa tudo em uma RPC transacional, marca a conta como importada uma única vez e não apaga o backup local. Conferir os totais no painel do Supabase antes de depender dos dados migrados.
+- Contatos locais são importados como `contacts` privados e `friendships` pendentes; o perfil “Eu” é associado ao perfil autenticado. Dependentes ficam associados ao contato responsável.
+- Convites usam token aleatório de uso único, validade de sete dias e associação explícita após login. A RPC preenche `profile_id` nas divisões ligadas à amizade, sem associar por nome ou e-mail.
+- O amigo pode ler somente as próprias divisões e marcar pagamento via RPC; o criador mantém o controle da despesa. A UI precisa ser conectada a essas políticas e RPCs na próxima etapa.
 
 ### Fase futura multiusuário / nativa (possível Fase 3)
 
@@ -257,6 +259,6 @@ Estas ideias não devem ser consideradas implementadas. Qualquer agente que trab
 
 1. Leia este documento e `README.md` antes de alterar a arquitetura.
 2. Mantenha `src/types.ts` como contrato de dados e atualize a versão/migração da store quando o formato persistido mudar.
-3. Não introduza backend, autenticação ou APIs externas sem solicitação explícita.
+3. Não introduza novos serviços externos; respeite a integração Supabase já aprovada e mantenha explícito o que ainda é local-only.
 4. Preserve as invariantes: uma única pessoa `isMe`, divisões em centavos que fecham com o total e relacionamento válido parcela → divisão → responsável/dependente.
 5. Distingua claramente comportamento implementado de propostas futuras na documentação e na interface.
