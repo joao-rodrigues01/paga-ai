@@ -7,6 +7,7 @@ import {
 import { createBackupEnvelope, getStorageWarning, STORAGE_ERROR_EVENT, useAppStore } from './store/useAppStore'
 import { ExpenseForm } from './components/ExpenseForm'
 import { MigrationTool } from './components/MigrationTool'
+import { SharedExpenses } from './components/SharedExpenses'
 import { createFriendInviteLink } from './lib/friendships'
 import type { CreditCard as CreditCardModel, Dependent, Friend } from './types'
 import type { NewExpenseInput } from './store/useAppStore'
@@ -178,6 +179,7 @@ export default function App() {
           {feedback && <div role={feedbackIsError ? 'alert' : 'status'} className={`mb-4 rounded-xl border px-4 py-3 text-sm ${feedbackIsError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-brand/20 bg-brand-soft text-brand-dark'}`}>{feedback}</div>}
 
           {activePage === 'Visão geral' && <>
+            <SharedExpenses />
             <div className="mb-3 flex justify-end"><label className="flex items-center gap-2 text-xs font-medium text-muted"><CalendarDays size={15} /> Mês de referência<input type="month" aria-label="Mês de referência" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink outline-none focus:border-brand" /></label></div>
             <section className="grid gap-4 md:grid-cols-3" aria-label="Resumo financeiro">
               <SummaryCard dark label="Total a receber" value={currency.format(pending)} icon={<Wallet size={18} />} foot="Em aberto com seus amigos" />

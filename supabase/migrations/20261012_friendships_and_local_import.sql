@@ -136,7 +136,7 @@ end;
 $$;
 
 -- Lê o backup do Zustand e importa todas as entidades numa transação. IDs locais
--- são preservados; conflitos são ignorados para permitir retry sem sobrescrita.
+-- são preservados; conflito ou erro de integridade aborta tudo antes do marcador.
 create or replace function public.import_local_backup(p_data jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -211,16 +211,16 @@ begin
 
   insert into public.credit_cards (id, owner_profile_id, group_id, name, closing_day, due_day)
   select c.id, v_user_id, null, c.name, c."closingDay", c."dueDay"
-  from jsonb_to_recordset(p_data->'creditCards') as c(id uuid, name text, "closingDay" smallint, "dueDay" smallint)
-  ;
+  from jsonb_to_recordset(p_data->'creditCards') as c(id uuid, name text, "closingDay" smallint, "dueDay" smallint);
 
   insert into public.dependents (id, profile_id, contact_id, name)
   select d.id,
-    case when coalesce(f."isMe", false) then v_user_id else null end,
-    case when coalesce(f."isMe", false) then null else f.id end,
+    case when coalesce((friend_row.friend_json->>'isMe')::boolean, false) then v_user_id else null end,
+    case when coalesce((friend_row.friend_json->>'isMe')::boolean, false) then null
+      else (friend_row.friend_json->>'id')::uuid end,
     d.name
-  from jsonb_array_elements(p_data->'friends') f
-  cross join lateral jsonb_to_recordset(coalesce(f->'dependents', '[]'::jsonb)) as d(id uuid, name text);
+  from jsonb_array_elements(p_data->'friends') as friend_row(friend_json)
+  cross join lateral jsonb_to_recordset(coalesce(friend_row.friend_json->'dependents', '[]'::jsonb)) as d(id uuid, name text);
 
   insert into public.expenses (id, title, total_amount, date, group_id, created_by,
                                credit_card_id, payment_method, installments_count, created_at)

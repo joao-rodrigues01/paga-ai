@@ -223,14 +223,15 @@ Arquivos centrais:
 
 - `src/App.tsx`: navegação, dashboard e telas de listagem.
 - `src/components/ExpenseForm.tsx`: formulário de despesa, participantes e parcelas.
+- `src/components/SharedExpenses.tsx`: leitura das despesas e cotas compartilhadas com a conta autenticada.
 - `src/store/useAppStore.ts`: estado, validações, cálculo de parcelas e persistência.
 - `src/types.ts`: interfaces de domínio.
 
 ## 7. Backend parcial e funcionalidades pendentes
 
-O login Supabase está implementado. A primeira versão do schema `supabase/schema.sql` pode já estar aplicada e a migração aditiva `supabase/migrations/20261012_friendships_and_local_import.sql` adiciona o modelo de amizades, importação e RLS sem remover o legado de grupos. A migração aditiva ainda precisa ser executada pelo administrador do projeto Supabase. O código cliente para importação e convites existe, mas depende dela.
+O login Supabase está implementado. A primeira versão do schema `supabase/schema.sql` pode já estar aplicada e as migrações aditivas em `supabase/migrations/` adicionam amizades, importação, RLS e leitura das despesas compartilhadas sem remover o legado de grupos. A migração aditiva precisa ser executada pelo administrador do projeto Supabase. O código cliente para importação e convites depende dela.
 
-Ainda não implementado: leitura e escrita de despesas pela nuvem, atualização do Zustand a partir do Supabase, sincronização entre dispositivos, resolução de conflitos e visualização de despesas cloud pelo amigo convidado. O aceite atual concede acesso no banco, não adiciona tela de despesas compartilhadas.
+O Dashboard do convidado consulta amizades aceitas e lista as despesas, parcelas e cotas associadas ao perfil autenticado, em modo de leitura. Ainda não implementado: CRUD cloud, baixa de pagamento pelo convidado, atualização do Zustand a partir do Supabase, sincronização entre dispositivos e resolução de conflitos. A tela local do administrador continua usando o Zustand/localStorage.
 
 ### Próximos passos de organização e entrega
 
@@ -239,7 +240,7 @@ Ainda não implementado: leitura e escrita de despesas pela nuvem, atualização
 
 ### Próxima etapa de backend
 
-- Integrar a leitura cloud ao app, usando `profile_id` para filtrar as dívidas do amigo e mantendo todas as despesas do criador.
+- Completar a leitura cloud fora do painel de consulta atual, mantendo os filtros por `profile_id` e as despesas locais do criador.
 - Migrar CRUD de despesas, parcelas e pagamentos para repositórios/RPCs Supabase e definir como a UI atualiza/recupera o estado.
 - Projetar sincronização entre dispositivos e resolução de conflitos antes de remover o `localStorage` como fonte principal.
 - `supabase/schema.sql` é o schema anterior com grupos. A migração aditiva `supabase/migrations/20261012_friendships_and_local_import.sql` mantém as tabelas antigas e adiciona relações individuais sem exigir grupo.

@@ -65,7 +65,7 @@ export function AuthGate() {
 
   return <>
     <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-4 py-2 text-xs text-amber-900 sm:px-6">
-      <span>Login ativo · seus dados ainda ficam somente neste navegador e não foram sincronizados.</span>
+      <span>Login ativo · seus registros locais ficam neste navegador; despesas compartilhadas aparecem abaixo quando disponíveis.</span>
       <button type="button" onClick={() => void signOut()} className="font-semibold underline underline-offset-2">Sair</button>
     </div>
     <App />

@@ -16,7 +16,7 @@ export function InviteFriend({ token }: { token: string }) {
       url.searchParams.delete('invite')
       window.history.replaceState({}, '', url)
       setAccepted(true)
-      setMessage('Amizade aceita. Seu perfil agora tem acesso às divisões compartilhadas no banco; a tela de despesas compartilhadas ainda será integrada ao app.')
+      setMessage('Amizade aceita. Abra o Dashboard para consultar as despesas e parcelas compartilhadas com você.')
     } catch (reason) {
       setError(true)
       setMessage(reason instanceof Error ? reason.message : 'Não foi possível aceitar o convite.')
