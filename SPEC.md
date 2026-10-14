@@ -231,7 +231,7 @@ Arquivos centrais:
 
 O login Supabase está implementado. A primeira versão do schema `supabase/schema.sql` pode já estar aplicada e as migrações aditivas em `supabase/migrations/` adicionam amizades, importação, RLS e leitura das despesas compartilhadas sem remover o legado de grupos. A migração aditiva precisa ser executada pelo administrador do projeto Supabase. O código cliente para importação e convites depende dela.
 
-O Dashboard do convidado consulta amizades aceitas e lista as despesas, parcelas e cotas associadas ao perfil autenticado, em modo de leitura. Ainda não implementado: CRUD cloud, baixa de pagamento pelo convidado, atualização do Zustand a partir do Supabase, sincronização entre dispositivos e resolução de conflitos. A tela local do administrador continua usando o Zustand/localStorage.
+O Dashboard e a aba Despesas consultam amizades aceitas e listam somente as cotas associadas ao perfil autenticado. O convidado pode marcar uma parcela ou todas as suas cotas de uma despesa como pagas via RPC protegida. Ainda não implementado: CRUD cloud, atualização do Zustand/localStorage do administrador após pagamentos remotos, sincronização entre dispositivos e resolução de conflitos. A tela de despesas do administrador continua usando o Zustand/localStorage.
 
 ### Próximos passos de organização e entrega
 
@@ -241,7 +241,7 @@ O Dashboard do convidado consulta amizades aceitas e lista as despesas, parcelas
 ### Próxima etapa de backend
 
 - Completar a leitura cloud fora do painel de consulta atual, mantendo os filtros por `profile_id` e as despesas locais do criador.
-- Migrar CRUD de despesas, parcelas e pagamentos para repositórios/RPCs Supabase e definir como a UI atualiza/recupera o estado.
+- Migrar CRUD de despesas e parcelas para repositórios/RPCs Supabase e sincronizar no app do administrador os pagamentos registrados pelos amigos.
 - Projetar sincronização entre dispositivos e resolução de conflitos antes de remover o `localStorage` como fonte principal.
 - `supabase/schema.sql` é o schema anterior com grupos. A migração aditiva `supabase/migrations/20261012_friendships_and_local_import.sql` mantém as tabelas antigas e adiciona relações individuais sem exigir grupo.
 - O importador mantém os UUIDs locais, executa tudo em uma RPC transacional, marca a conta como importada uma única vez e não apaga o backup local. Conferir os totais no painel do Supabase antes de depender dos dados migrados.

@@ -38,6 +38,29 @@ function expenseDate(date: string): string {
 export function SharedExpenses() {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState('')
+  const [actionError, setActionError] = useState('')
+
+  const markAsPaid = async (expenseId: string, installmentNumber: number | null) => {
+    const key = `${expenseId}:${installmentNumber ?? 'all'}`
+    setBusyKey(key)
+    setActionError('')
+    setActionMessage('')
+    try {
+      const { data: updatedCount, error } = await getSupabaseClient().rpc('mark_shared_expense_paid', {
+        p_expense_id: expenseId,
+        p_installment_number: installmentNumber,
+      })
+      if (error) throw error
+      setActionMessage(updatedCount > 0 ? 'Pagamento registrado.' : 'Todas as suas cotas desta seleção já estavam pagas.')
+      setReloadKey((current) => current + 1)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Não foi possível registrar o pagamento.')
+    } finally {
+      setBusyKey(null)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -151,7 +174,9 @@ export function SharedExpenses() {
   if (loadState.expenses.length === 0) return null
 
   return <section className="mb-6 space-y-4" aria-labelledby="shared-expenses-title">
-    <div><h2 id="shared-expenses-title" className="text-lg font-semibold">Despesas compartilhadas com você</h2><p className="mt-1 text-sm text-muted">Parcelas e valores que seus amigos dividiram com sua conta.</p></div>
+    <div><h2 id="shared-expenses-title" className="text-lg font-semibold">Despesas compartilhadas com você</h2><p className="mt-1 text-sm text-muted">Você vê apenas as cotas associadas à sua conta e pode registrar seus pagamentos.</p></div>
+    {actionMessage && <p role="status" className="rounded-xl border border-brand/20 bg-brand-soft px-4 py-3 text-sm text-brand-dark">{actionMessage}</p>}
+    {actionError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{actionError}</p>}
     {loadState.expenses.map(({ expense, installments }) => {
       const expenseShares = installments.flatMap((installment) => installment.shares)
       const totalOwed = expenseShares.reduce((sum, share) => sum + share.split.amount_owed, 0)
@@ -159,11 +184,11 @@ export function SharedExpenses() {
       return <article key={expense.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><ReceiptText size={18} /></span><div className="min-w-0"><h3 className="truncate font-semibold">{expense.title}</h3><p className="mt-1 text-xs text-muted">Compra em {expenseDate(expense.date)} · total {currency.format(expense.total_amount)}</p></div></div>
-          <div className="text-right"><p className="text-xs text-muted">Sua parte</p><b className="text-sm">{currency.format(totalOwed)}</b><p className="mt-1 text-xs text-muted">{currency.format(totalPending)} pendente</p></div>
+          <div className="text-right"><p className="text-xs text-muted">Sua parte</p><b className="text-sm">{currency.format(totalOwed)}</b><p className="mt-1 text-xs text-muted">{currency.format(totalPending)} pendente</p>{totalPending > 0 && <button type="button" onClick={() => void markAsPaid(expense.id, null)} disabled={busyKey !== null} className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">{busyKey === `${expense.id}:all` ? 'Registrando…' : 'Marcar conta toda como paga'}</button>}</div>
         </div>
         <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
           {installments.map(({ installment, shares }) => <div key={installment.id} className="py-3">
-            <div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-semibold text-slate-600">Parcela {installment.installment_number}/{expense.installments_count} · vence {expenseDate(installment.due_date)}</p><span className="text-xs text-muted">Parcela total {currency.format(installment.amount)}</span></div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-600">Parcela {installment.installment_number}/{expense.installments_count} · vence {expenseDate(installment.due_date)}</p><div className="flex items-center gap-2"><span className="text-xs text-muted">Parcela total {currency.format(installment.amount)}</span>{shares.some(({ split }) => !split.is_paid) && <button type="button" onClick={() => void markAsPaid(expense.id, installment.installment_number)} disabled={busyKey !== null} className="rounded-lg border border-brand/20 px-2.5 py-1.5 text-[11px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-60">{busyKey === `${expense.id}:${installment.installment_number}` ? 'Registrando…' : 'Marcar parcela paga'}</button>}</div></div>
             <div className="space-y-2">{shares.map(({ split, memberName }) => <div key={split.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2"><div className="min-w-0"><p className="truncate text-xs font-medium">{memberName}</p><p className="text-[11px] text-muted">{split.is_paid ? `Pago${split.paid_at ? ` em ${expenseDate(split.paid_at.slice(0, 10))}` : ''}` : 'Pendente'}</p></div><div className="flex items-center gap-2"><b className="text-sm">{currency.format(split.amount_owed)}</b>{split.is_paid ? <CheckCircle2 size={16} className="text-brand" aria-label="Pago" /> : <Clock3 size={16} className="text-amber-600" aria-label="Pendente" />}</div></div>)}</div>
           </div>)}
         </div>
