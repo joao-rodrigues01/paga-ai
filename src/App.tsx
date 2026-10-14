@@ -9,6 +9,7 @@ import { ExpenseForm } from './components/ExpenseForm'
 import { MigrationTool } from './components/MigrationTool'
 import { SharedExpenses } from './components/SharedExpenses'
 import { createFriendInviteLink } from './lib/friendships'
+import { getSupabaseClient } from './lib/supabase'
 import type { CreditCard as CreditCardModel, Dependent, Friend } from './types'
 import type { NewExpenseInput } from './store/useAppStore'
 
@@ -43,7 +44,8 @@ export default function App() {
   const expenses = useAppStore((state) => state.expenses)
   const installments = useAppStore((state) => state.expenseInstallments)
   const splits = useAppStore((state) => state.expenseSplits)
-  const markAsPaid = useAppStore((state) => state.markAsPaid)
+  const applyRemotePayments = useAppStore((state) => state.applyRemotePayments)
+  const splitIdsSignature = splits.map((split) => split.id).join(',')
   const installmentsById = new Map(installments.map((installment) => [installment.id, installment]))
   const monthInstallments = installments.filter((installment) => installment.dueDate.startsWith(monthFilter))
   const monthInstallmentIds = new Set(monthInstallments.map((installment) => installment.id))
@@ -108,6 +110,25 @@ export default function App() {
       setFeedbackIsError(true)
     }
   }
+  const markSplitAsPaid = async (splitId: string) => {
+    const localSplit = useAppStore.getState().expenseSplits.find((split) => split.id === splitId)
+    if (!localSplit || localSplit.isPaid) return
+    useAppStore.getState().markAsPaid(splitId)
+    try {
+      const { data, error } = await getSupabaseClient().rpc('mark_expense_split_paid', { p_split_id: splitId })
+      if (error) {
+        if (error.code !== 'P0002') {
+          setFeedback('Pagamento salvo neste navegador, mas não foi sincronizado com o Supabase.')
+          setFeedbackIsError(true)
+        }
+        return
+      }
+      if (data.is_paid && data.paid_at) applyRemotePayments([{ id: data.id, paidAt: data.paid_at }])
+    } catch {
+      setFeedback('Pagamento salvo neste navegador, mas não foi sincronizado com o Supabase.')
+      setFeedbackIsError(true)
+    }
+  }
   useEffect(() => {
     const listener = (event: Event) => {
       const detail = (event as CustomEvent<{ message: string }>).detail
@@ -117,6 +138,36 @@ export default function App() {
     window.addEventListener(STORAGE_ERROR_EVENT, listener)
     return () => window.removeEventListener(STORAGE_ERROR_EVENT, listener)
   }, [])
+  useEffect(() => {
+    const splitIds = splitIdsSignature ? splitIdsSignature.split(',') : []
+    if (splitIds.length === 0) return
+    let active = true
+    const syncPayments = async () => {
+      try {
+        const client = getSupabaseClient()
+        const { data: userData, error: userError } = await client.auth.getUser()
+        if (userError) throw userError
+        if (!userData.user) return
+        const payments: Array<{ id: string; paidAt: string }> = []
+        for (let offset = 0; offset < splitIds.length; offset += 100) {
+          const { data, error } = await client.from('expense_splits')
+            .select('id, is_paid, paid_at')
+            .in('id', splitIds.slice(offset, offset + 100))
+          if (error) throw error
+          for (const split of data ?? []) {
+            if (split.is_paid && split.paid_at) payments.push({ id: split.id, paidAt: split.paid_at })
+          }
+        }
+        if (active && payments.length > 0) applyRemotePayments(payments)
+      } catch (error) {
+        console.warn('[PagaAí] Não foi possível atualizar pagamentos do Supabase:', error)
+      }
+    }
+    const handleFocus = () => { void syncPayments() }
+    void syncPayments()
+    window.addEventListener('focus', handleFocus)
+    return () => { active = false; window.removeEventListener('focus', handleFocus) }
+  }, [splitIdsSignature, applyRemotePayments])
   const addButtonText: Record<Page, string> = {
     'Visão geral': 'Nova despesa', Despesas: 'Nova despesa', Amigos: 'Novo amigo', Cartões: 'Novo cartão',
   }
@@ -201,7 +252,7 @@ export default function App() {
             const expenseInstallments = installments.filter((item) => item.expenseId === expense.id).sort((a, b) => a.installmentNumber - b.installmentNumber)
             const card = creditCards.find((item) => item.id === expense.creditCardId)
             const hasPayments = splits.some((split) => expenseInstallments.some((item) => item.id === split.expenseInstallmentId) && split.isPaid && !friends.find((friend) => friend.id === split.friendId)?.isMe)
-            return <article key={expense.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card md:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand"><ReceiptText size={19} /></span><div><h2 className="font-semibold">{expense.title}</h2><p className="mt-1 text-xs text-muted">{new Date(`${expense.date}T12:00:00`).toLocaleDateString('pt-BR')} · {card?.name ?? 'Pix'} · {expense.installmentsCount}x</p></div></div><div className="flex items-center gap-2"><b className="mr-1 text-lg">{currency.format(expense.totalAmount)}</b><IconButton label={`Editar ${expense.title}`} disabled={hasPayments} onClick={() => beginExpenseEdit(expense.id)}><Pencil size={15} /></IconButton><IconButton label={`Excluir ${expense.title}`} disabled={hasPayments} onClick={() => { if (window.confirm(`Excluir a despesa ${expense.title} e todas as parcelas ainda não pagas?`)) runAction(() => useAppStore.getState().deleteExpense(expense.id), 'Despesa excluída.') }}><Trash2 size={15} /></IconButton></div></div>{hasPayments && <p className="mt-2 text-xs text-amber-700">Edição e exclusão bloqueadas para preservar pagamentos já registrados.</p>}<div className="mt-4 space-y-3">{expenseInstallments.map((installment) => <div key={installment.id} className="rounded-xl bg-slate-50 px-3 py-2"><div className="flex justify-between text-xs font-semibold"><span>Parcela {installment.installmentNumber}/{expense.installmentsCount}</span><span>{new Date(`${installment.dueDate}T12:00:00`).toLocaleDateString('pt-BR')} · {currency.format(installment.amount)}</span></div><div className="mt-1 divide-y divide-white">{splits.filter((split) => split.expenseInstallmentId === installment.id).map((split) => { const friend = friends.find((item) => item.id === split.friendId); const dependent = friend?.dependents?.find((item) => item.id === split.dependentId); return <div key={split.id} className="flex items-center gap-3 py-2"><Avatar value={friend?.avatar ?? '🙂'} name={friend?.name ?? 'Amigo removido'} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{dependent ? `${dependent.name} · ${friend?.name}` : friend?.name ?? 'Amigo removido'}</p><p className="text-xs text-muted">{friend?.isMe ? 'Sua parte' : split.isPaid ? `Pago${split.paidAt ? ` em ${new Date(split.paidAt).toLocaleDateString('pt-BR')}` : ''}` : 'Pendente'}</p></div><b className="mr-2 text-sm">{currency.format(split.amountOwed)}</b>{split.isPaid ? <span className="inline-flex items-center gap-1 rounded-lg bg-brand-soft px-2.5 py-2 text-xs font-semibold text-brand-dark"><Check size={14} /> Pago</span> : <button onClick={() => markAsPaid(split.id)} className="rounded-lg border border-brand/20 px-2.5 py-2 text-xs font-semibold text-brand hover:bg-brand-soft">Marcar como pago</button>}</div>})}</div></div>)}</div></article>
+            return <article key={expense.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card md:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand"><ReceiptText size={19} /></span><div><h2 className="font-semibold">{expense.title}</h2><p className="mt-1 text-xs text-muted">{new Date(`${expense.date}T12:00:00`).toLocaleDateString('pt-BR')} · {card?.name ?? 'Pix'} · {expense.installmentsCount}x</p></div></div><div className="flex items-center gap-2"><b className="mr-1 text-lg">{currency.format(expense.totalAmount)}</b><IconButton label={`Editar ${expense.title}`} disabled={hasPayments} onClick={() => beginExpenseEdit(expense.id)}><Pencil size={15} /></IconButton><IconButton label={`Excluir ${expense.title}`} disabled={hasPayments} onClick={() => { if (window.confirm(`Excluir a despesa ${expense.title} e todas as parcelas ainda não pagas?`)) runAction(() => useAppStore.getState().deleteExpense(expense.id), 'Despesa excluída.') }}><Trash2 size={15} /></IconButton></div></div>{hasPayments && <p className="mt-2 text-xs text-amber-700">Edição e exclusão bloqueadas para preservar pagamentos já registrados.</p>}<div className="mt-4 space-y-3">{expenseInstallments.map((installment) => <div key={installment.id} className="rounded-xl bg-slate-50 px-3 py-2"><div className="flex justify-between text-xs font-semibold"><span>Parcela {installment.installmentNumber}/{expense.installmentsCount}</span><span>{new Date(`${installment.dueDate}T12:00:00`).toLocaleDateString('pt-BR')} · {currency.format(installment.amount)}</span></div><div className="mt-1 divide-y divide-white">{splits.filter((split) => split.expenseInstallmentId === installment.id).map((split) => { const friend = friends.find((item) => item.id === split.friendId); const dependent = friend?.dependents?.find((item) => item.id === split.dependentId); return <div key={split.id} className="flex items-center gap-3 py-2"><Avatar value={friend?.avatar ?? '🙂'} name={friend?.name ?? 'Amigo removido'} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{dependent ? `${dependent.name} · ${friend?.name}` : friend?.name ?? 'Amigo removido'}</p><p className="text-xs text-muted">{friend?.isMe ? 'Sua parte' : split.isPaid ? `Pago${split.paidAt ? ` em ${new Date(split.paidAt).toLocaleDateString('pt-BR')}` : ''}` : 'Pendente'}</p></div><b className="mr-2 text-sm">{currency.format(split.amountOwed)}</b>{split.isPaid ? <span className="inline-flex items-center gap-1 rounded-lg bg-brand-soft px-2.5 py-2 text-xs font-semibold text-brand-dark"><Check size={14} /> Pago</span> : <button onClick={() => void markSplitAsPaid(split.id)} className="rounded-lg border border-brand/20 px-2.5 py-2 text-xs font-semibold text-brand hover:bg-brand-soft">Marcar como pago</button>}</div>})}</div></div>)}</div></article>
           })}</section></>}
         </main>
       </div>

@@ -45,7 +45,7 @@ npm test
 - Ferramenta manual para importar uma vez o backup local para a conta Supabase, sem apagar o armazenamento do navegador.
 - Convites de amizade com token de uso único e validade de sete dias, depois de aplicar a migração SQL e importar os contatos.
 - O Dashboard lista em modo de consulta as despesas, parcelas e cotas compartilhadas com a conta autenticada.
-- Amigos podem marcar uma parcela ou todas as próprias cotas de uma despesa como pagas; a tela local do administrador ainda não sincroniza esse status automaticamente.
+- Amigos podem marcar uma parcela ou todas as próprias cotas de uma despesa como pagas. O administrador sincroniza os status pagos das divisões importadas ao abrir o app ou voltar à aba.
 - Edição de despesas e sincronização contínua ainda não estão ligadas ao Supabase.
 
 Consulte [SPEC.md](./SPEC.md) para a especificação funcional, regras de cálculo, arquitetura Supabase atual e etapas ainda pendentes.
@@ -54,7 +54,7 @@ Consulte [SPEC.md](./SPEC.md) para a especificação funcional, regras de cálcu
 
 O projeto já pode conter `supabase/schema.sql` (modelo anterior, com grupos). As migrações novas são aditivas e preservam essas tabelas e registros. Execute os arquivos `20261012_friendships_and_local_import.sql` e `20261013_shared_payment_actions.sql` no SQL Editor, nessa ordem. Não execute o schema inicial novamente em produção.
 
-Depois, entre com a conta administradora, use **Migrar dados ao Supabase** uma única vez neste navegador e confira o resultado no console do navegador. O importador mantém o `localStorage` intacto e a RPC impede uma segunda importação da mesma conta. Convide amigos pela ação ao lado do contato já importado. Após aceitar o convite, o amigo verá apenas suas cotas nas abas Dashboard e Despesas e poderá marcar uma parcela ou a conta toda como paga. A tela local do administrador ainda precisa ser atualizada para refletir esses pagamentos do Supabase.
+Depois, entre com a conta administradora, use **Migrar dados ao Supabase** uma única vez neste navegador e confira o resultado no console do navegador. O importador mantém o `localStorage` intacto e a RPC impede uma segunda importação da mesma conta. Convide amigos pela ação ao lado do contato já importado. Após aceitar o convite, o amigo verá apenas suas cotas nas abas Dashboard e Despesas e poderá marcar uma parcela ou a conta toda como paga. Os pagamentos feitos por amigos aparecem ao administrador quando ele abre o app ou retorna à aba.
 
 ## Publicação
 

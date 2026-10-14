@@ -40,6 +40,7 @@ interface AppState extends PersistedData {
   updateExpense: (expenseId: string, expense: NewExpenseInput) => void
   deleteExpense: (expenseId: string) => void
   markAsPaid: (splitId: string) => void
+  applyRemotePayments: (payments: Array<{ id: string; paidAt: string }>) => void
   restoreBackup: (input: unknown) => void
   ensureMe: () => void
 }
@@ -222,6 +223,15 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   markAsPaid: (splitId) => set((state) => ({
     expenseSplits: state.expenseSplits.map((split) => split.id === splitId && !split.isPaid ? { ...split, isPaid: true, paidAt: new Date().toISOString() } : split),
   })),
+  applyRemotePayments: (payments) => set((state) => {
+    const remoteById = new Map(payments.map((payment) => [payment.id, payment.paidAt]))
+    return {
+      expenseSplits: state.expenseSplits.map((split) => {
+        const paidAt = remoteById.get(split.id)
+        return paidAt && !split.isPaid ? { ...split, isPaid: true, paidAt } : split
+      }),
+    }
+  }),
   restoreBackup: (input) => {
     const restored = normalizeBackup(input)
     set(restored)
