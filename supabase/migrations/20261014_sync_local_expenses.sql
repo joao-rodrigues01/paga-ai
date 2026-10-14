@@ -12,6 +12,7 @@ declare
   v_split_count integer;
   v_valid_split_count integer;
   v_inserted_count integer;
+  v_card_id uuid;
   v_total numeric(12, 2);
 begin
   if v_user_id is null then raise exception 'Autenticação necessária.' using errcode = '42501'; end if;
@@ -37,10 +38,23 @@ begin
   if not exists (select 1 from public.profiles p where p.id = v_user_id) then
     raise exception 'Perfil não encontrado; entre novamente.' using errcode = '23503';
   end if;
-  if nullif(v_expense->>'creditCardId', '') is not null and not exists (
-    select 1 from public.credit_cards c where c.id = (v_expense->>'creditCardId')::uuid
-      and c.owner_profile_id = v_user_id and c.group_id is null
-  ) then raise exception 'Cartão não encontrado nesta conta.' using errcode = '42501'; end if;
+  v_card_id := nullif(v_expense->>'creditCardId', '')::uuid;
+  if v_card_id is not null then
+    if jsonb_typeof(p_data->'creditCard') is distinct from 'object'
+      or (p_data->'creditCard'->>'id')::uuid is distinct from v_card_id then
+      raise exception 'Dados do cartão desta despesa ausentes ou inválidos.' using errcode = '22023';
+    end if;
+    insert into public.credit_cards (id, owner_profile_id, group_id, name, closing_day, due_day)
+    values (v_card_id, v_user_id, null, p_data->'creditCard'->>'name',
+      (p_data->'creditCard'->>'closingDay')::smallint, (p_data->'creditCard'->>'dueDay')::smallint)
+    on conflict (id) do update set
+      name = excluded.name, closing_day = excluded.closing_day, due_day = excluded.due_day, updated_at = now()
+    where credit_cards.owner_profile_id = v_user_id and credit_cards.group_id is null;
+    get diagnostics v_inserted_count = row_count;
+    if v_inserted_count <> 1 then
+      raise exception 'O cartão existente não pertence a esta conta.' using errcode = '42501';
+    end if;
+  end if;
 
   select count(*) into v_installment_count from jsonb_array_elements(p_data->'installments');
   select count(*) into v_split_count from jsonb_array_elements(p_data->'splits');
@@ -69,8 +83,8 @@ begin
   insert into public.expenses (id, title, total_amount, date, group_id, created_by,
     credit_card_id, payment_method, installments_count, created_at)
   values (v_expense_id, v_expense->>'title', v_total, (v_expense->>'date')::date,
-    null, v_user_id, nullif(v_expense->>'creditCardId', '')::uuid,
-    case when nullif(v_expense->>'creditCardId', '') is null then 'pix' else 'credit_card' end,
+    null, v_user_id, v_card_id,
+    case when v_card_id is null then 'pix' else 'credit_card' end,
     (v_expense->>'installmentsCount')::smallint,
     coalesce(nullif(v_expense->>'createdAt', '')::timestamptz, now()));
 
