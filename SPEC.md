@@ -1,12 +1,12 @@
 # PagaAí — Especificação funcional e técnica
 
-**Estado do documento:** descreve funcionalidades locais implementadas, a integração parcial de autenticação/amizades e o que ainda depende da sincronização da store.
+**Estado do documento:** descreve funcionalidades locais implementadas, autenticação/amizades e sincronização parcial de despesas com Supabase.
 
 ## 1. Visão do produto
 
 PagaAí ajuda uma pessoa a organizar gastos compartilhados com amigos, identificar quanto cada participante deve e acompanhar os pagamentos. As operações financeiras do app continuam **single-player e locais**. Supabase Auth está integrado e há uma migração SQL aditiva planejada para amizades, importação única e autorização de leitura/baixa de divisões compartilhadas.
 
-O Zustand `persist` no `localStorage` continua sendo a fonte de dados usada pelas telas. A autenticação usa Supabase; o backend ainda não é a fonte de leitura/escrita da store. Ao aplicar a migração SQL, o app oferece importação manual do backup e emissão/aceite de convites, mas ainda não carrega despesas cloud na interface. Não há sincronização contínua.
+O Zustand `persist` no `localStorage` continua sendo a fonte dos dados administrativos. A autenticação usa Supabase. O administrador importa o backup e sincroniza os novos amigos; despesas novas são gravadas localmente e enviadas ao Supabase por uma RPC atômica. O Dashboard e a aba Despesas também consultam as cotas cloud do usuário autenticado. Edição e exclusão ainda não são sincronizadas.
 
 ## 2. Princípios e limites do MVP
 
@@ -231,7 +231,7 @@ Arquivos centrais:
 
 O login Supabase está implementado. A primeira versão do schema `supabase/schema.sql` pode já estar aplicada e as migrações aditivas em `supabase/migrations/` adicionam amizades, importação, RLS e leitura das despesas compartilhadas sem remover o legado de grupos. A migração aditiva precisa ser executada pelo administrador do projeto Supabase. O código cliente para importação e convites depende dela.
 
-O Dashboard e a aba Despesas consultam amizades aceitas e listam somente as cotas associadas ao perfil autenticado. O convidado pode marcar uma parcela ou todas as suas cotas de uma despesa como pagas via RPC protegida. A baixa é escrita no Supabase; o administrador reconcilia o status das divisões importadas quando abre o app ou retorna à aba. Ainda não implementados: CRUD cloud completo, sincronização entre dispositivos e resolução de conflitos. A criação e edição de despesas do administrador continuam no Zustand/localStorage.
+O Dashboard e a aba Despesas consultam amizades aceitas e listam somente as cotas associadas ao perfil autenticado. O convidado pode marcar uma parcela ou todas as suas cotas de uma despesa como pagas via RPC protegida. A baixa é escrita no Supabase; o administrador reconcilia o status das divisões importadas quando abre o app ou retorna à aba. O cadastro de despesas envia expense, installments e splits em uma única transação e o botão de sincronização pode recuperar despesas locais ainda não enviadas. Edição/exclusão cloud, sincronização entre dispositivos e resolução de conflitos ainda não estão implementadas.
 
 ### Próximos passos de organização e entrega
 

@@ -100,6 +100,7 @@ export interface Database {
       accept_friend_invite: { Args: { p_token: string }; Returns: string }
       import_local_backup: { Args: { p_data: Json }; Returns: Json }
       sync_local_friends: { Args: { p_friends: Json }; Returns: Json }
+      sync_local_expense: { Args: { p_data: Json }; Returns: Json }
       mark_shared_expense_paid: { Args: { p_expense_id: string; p_installment_number?: number | null }; Returns: number }
     }
     Enums: Record<string, never>

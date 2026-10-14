@@ -9,6 +9,7 @@ import { ExpenseForm } from './components/ExpenseForm'
 import { MigrationTool } from './components/MigrationTool'
 import { SharedExpenses } from './components/SharedExpenses'
 import { createFriendInviteLink } from './lib/friendships'
+import { syncLocalExpense } from './lib/expenseSync'
 import { getSupabaseClient } from './lib/supabase'
 import type { CreditCard as CreditCardModel, Dependent, Friend } from './types'
 import type { NewExpenseInput } from './store/useAppStore'
@@ -77,6 +78,35 @@ export default function App() {
       setModal(null)
     }
     catch (error) { setFeedback(error instanceof Error ? error.message : 'Não foi possível concluir a ação.'); setFeedbackIsError(true); setModal(null) }
+  }
+  const saveExpense = (data: NewExpenseInput) => {
+    if (editingExpenseId) {
+      runAction(() => useAppStore.getState().updateExpense(editingExpenseId, data), 'Despesa atualizada neste navegador.')
+      return
+    }
+    try {
+      const expenseId = useAppStore.getState().addExpense(data)
+      setModal(null)
+      setFeedback('Despesa salva localmente. Sincronizando com o Supabase…')
+      setFeedbackIsError(false)
+      const state = useAppStore.getState()
+      void syncLocalExpense({
+        friends: state.friends,
+        creditCards: state.creditCards,
+        expenses: state.expenses,
+        expenseInstallments: state.expenseInstallments,
+        expenseSplits: state.expenseSplits,
+      }, expenseId).then((alreadySynced) => {
+        setFeedback(alreadySynced ? 'Despesa já estava sincronizada com o Supabase.' : 'Despesa sincronizada; seu amigo já pode visualizá-la.')
+        setFeedbackIsError(false)
+      }).catch((error: unknown) => {
+        setFeedback(`Despesa salva localmente, mas não foi compartilhada no Supabase: ${error instanceof Error ? error.message : 'erro de sincronização'}. Use “Migrar / sincronizar dados” para tentar novamente.`)
+        setFeedbackIsError(true)
+      })
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível cadastrar a despesa.')
+      setFeedbackIsError(true)
+    }
   }
   const exportBackup = () => {
     const state = useAppStore.getState()
@@ -262,7 +292,7 @@ export default function App() {
         {modal === 'friend' && <FriendForm initial={friends.find((friend) => friend.id === editingFriendId)} onCancel={() => setModal(null)} onSave={(data) => runAction(() => { if (editingFriendId) useAppStore.getState().updateFriend(editingFriendId, data); else useAppStore.getState().addFriend(data) }, editingFriendId ? 'Amigo atualizado.' : 'Amigo cadastrado.')} />}
         {modal === 'card' && <CardForm initial={creditCards.find((card) => card.id === editingCardId)} lockDates={Boolean(editingCardId && expenses.some((expense) => expense.creditCardId === editingCardId))} onCancel={() => setModal(null)} onSave={(data) => runAction(() => { if (editingCardId) useAppStore.getState().updateCreditCard(editingCardId, data); else useAppStore.getState().addCreditCard(data) }, editingCardId ? 'Cartão atualizado.' : 'Cartão cadastrado.')} />}
         {modal === 'dependent' && editingDependent && <DependentForm initial={friends.find((friend) => friend.id === editingDependent.friendId)?.dependents?.find((dependent) => dependent.id === editingDependent.dependentId)} onCancel={() => setModal(null)} onSave={(name) => runAction(() => { if (editingDependent.dependentId) useAppStore.getState().updateDependent(editingDependent.friendId, editingDependent.dependentId, name); else useAppStore.getState().addDependent(editingDependent.friendId, name) }, editingDependent.dependentId ? 'Dependente atualizado.' : 'Dependente cadastrado.')} />}
-        {modal === 'expense' && <ExpenseForm key={editingExpenseId ?? 'new-expense'} friends={friends} cards={creditCards} initialData={editingExpenseId ? getExpenseEditorData(editingExpenseId) : undefined} onCancel={() => setModal(null)} onSave={(data) => runAction(() => { if (editingExpenseId) useAppStore.getState().updateExpense(editingExpenseId, data); else useAppStore.getState().addExpense(data) }, editingExpenseId ? 'Despesa atualizada.' : 'Despesa cadastrada e parcelas salvas.')} />}
+        {modal === 'expense' && <ExpenseForm key={editingExpenseId ?? 'new-expense'} friends={friends} cards={creditCards} initialData={editingExpenseId ? getExpenseEditorData(editingExpenseId) : undefined} onCancel={() => setModal(null)} onSave={saveExpense} />}
       </ModalFrame>}
     </div>
   )
