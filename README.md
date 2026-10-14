@@ -52,9 +52,9 @@ Consulte [SPEC.md](./SPEC.md) para a especificação funcional, regras de cálcu
 
 ## Supabase: ativação incremental
 
-O projeto já pode conter `supabase/schema.sql` (modelo anterior, com grupos). As migrações novas são aditivas e preservam essas tabelas e registros. Execute os arquivos `20261012_friendships_and_local_import.sql` e `20261013_shared_payment_actions.sql` no SQL Editor, nessa ordem. Não execute o schema inicial novamente em produção.
+O projeto já pode conter `supabase/schema.sql` (modelo anterior, com grupos). As migrações novas são aditivas e preservam essas tabelas e registros. Execute os arquivos `20261012_friendships_and_local_import.sql`, `20261013_shared_payment_actions.sql` e `20261013_sync_local_friends.sql` no SQL Editor, nessa ordem. Não execute o schema inicial novamente em produção.
 
-Depois, entre com a conta administradora, use **Migrar dados ao Supabase** uma única vez neste navegador e confira o resultado no console do navegador. O importador mantém o `localStorage` intacto e a RPC impede uma segunda importação da mesma conta. Convide amigos pela ação ao lado do contato já importado. Após aceitar o convite, o amigo verá apenas suas cotas nas abas Dashboard e Despesas e poderá marcar uma parcela ou a conta toda como paga. Os pagamentos feitos por amigos aparecem ao administrador quando ele abre o app ou retorna à aba.
+Depois, entre com a conta administradora e use **Migrar / sincronizar amigos**. Na primeira execução, importa o backup completo. Em execuções seguintes, sincroniza apenas amigos e dependentes novos ou alterados, sem repetir despesas, parcelas, divisões ou pagamentos. Se a importação antiga deixou amizades existentes sem o registro de controle, a ferramenta também recupera conflitos de unicidade sincronizando somente amigos e dependentes. O `localStorage` é preservado. Confira o resultado no console do navegador. Convide amigos pela ação ao lado do contato importado. Após aceitar o convite, o amigo verá apenas suas cotas nas abas Dashboard e Despesas e poderá marcar uma parcela ou a conta toda como paga. Os pagamentos feitos por amigos aparecem ao administrador quando ele abre o app ou retorna à aba.
 
 ## Publicação
 

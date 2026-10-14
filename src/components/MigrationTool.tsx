@@ -31,13 +31,31 @@ export function MigrationTool() {
   const [busy, setBusy] = useState(false)
 
   const migrate = async () => {
-    if (!window.confirm('Importar os dados deste navegador para sua conta Supabase? A operação preserva o localStorage e não substitui registros existentes.')) return
+    if (!window.confirm('Importar o backup local no Supabase. Se as despesas já tiverem sido importadas, esta ação sincroniza somente amigos e dependentes, sem duplicar despesas. O localStorage será preservado.')) return
     setBusy(true)
     try {
       const data = readLocalBackup()
       const { data: result, error } = await getSupabaseClient().rpc('import_local_backup', { p_data: data as unknown as Json })
-      if (error) throw error
-      console.info('[PagaAí] Migração local concluída:', result)
+      if (!error && isRecord(result) && result.alreadyImported === true) {
+        const { data: syncResult, error: syncError } = await getSupabaseClient().rpc('sync_local_friends', {
+          p_friends: data.friends as Json,
+        })
+        if (syncError) throw syncError
+        console.info('[PagaAí] Amigos e dependentes sincronizados; despesas já importadas não foram alteradas:', syncResult)
+        return
+      }
+      if (error) {
+        // Uma importação anterior pode ter sido feita antes do registro de controle
+        // da RPC. Em conflito de unicidade, sincronizamos apenas a lista de amigos.
+        if (error.code !== '23505') throw error
+        const { data: syncResult, error: syncError } = await getSupabaseClient().rpc('sync_local_friends', {
+          p_friends: data.friends as Json,
+        })
+        if (syncError) throw syncError
+        console.info('[PagaAí] A importação integral encontrou registros existentes. Amigos e dependentes foram sincronizados; despesas não foram reimportadas:', syncResult)
+        return
+      }
+      console.info('[PagaAí] Migração inicial concluída:', result)
     } catch (error) {
       console.error('[PagaAí] Falha na migração local:', error)
     } finally {
@@ -47,6 +65,6 @@ export function MigrationTool() {
 
   return <button type="button" onClick={() => void migrate()} disabled={busy}
     className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">
-    <Database size={15} /> {busy ? 'Migrando…' : 'Migrar dados ao Supabase'}
+    <Database size={15} /> {busy ? 'Sincronizando…' : 'Migrar / sincronizar amigos'}
   </button>
 }
